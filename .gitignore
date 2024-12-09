@@ -1,0 +1,100 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Mac
+.DS_Store
+
+# goenv
+.go-version
+
+# Gradle
+.gradle/
+.gogradle/
+*.log
+tests/build/
+test.out
+
+# Dependencies
+vendor/
+virtulenv/
+node_modules/
+
+# Go binary proxy
+proxy
+proxy-experimental
+actionloop/proxy
+golang1.19/proxy
+golang1.20/proxy
+golang1.21/proxy
+golang1.22/proxy
+
+# Go test transient files
+openwhisk/_test/exec
+openwhisk/_test/exec.go
+openwhisk/_test/hi
+openwhisk/_test/hello_greeting
+openwhisk/_test/hello_message
+openwhisk/_test/*.zip
+openwhisk/_test/*.jar
+openwhisk/_test/compile/
+openwhisk/_test/output/
+openwhisk/_test/venv/
+openwhisk/action/
+openwhisk/compile/
+openwhisk/debug.test
+*.pyc
+*.env
+
+# Eclipse
+tests/bin/
+**/.project
+.settings/
+.classpath
+.cache-main
+.cache-tests
+
+# IntelliJ
+.idea
+*.class
+*.iml
+tests/out/
+
+# VSCode
+.vscode
+
+# examples
+exec
+*.done
+*.zip
+*_launcher_.go
+test.json
+pkg/
+
+# etc
+.git-hooks/
+.vscode/
+.task
+.env
+.env
+.env.nuv
+.env.src
+.param.json
+
+openserverless-runtimes
+
+runtimes.json
+action/**/*
