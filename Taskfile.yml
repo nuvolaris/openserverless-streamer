@@ -1,0 +1,48 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+version: "3"
+
+vars:
+  BASEIMG: ghcr.io/nuvolaris/openserverless-streamer
+  COMMIT_ID:
+    sh: git rev-parse --short HEAD
+  TAG:
+    sh: git describe --tags --abbrev=0 2>/dev/null || echo latest
+
+
+tasks:
+  
+  image-tag:
+    silent: true
+    cmds:
+      - git tag -d $(git tag)
+      - git tag -f $(date +%y%m%d%H%M)
+      - env PAGER= git tag
+      
+  build:    
+    cmds:
+      - |
+        IMG="{{.BASEIMG}}:{{.TAG}}"
+        if test -n "{{.PUSH}}"
+        then {{.DRY}} docker buildx build -t $IMG --platform linux/amd64,linux/arm64 . --push
+        else {{.DRY}} docker buildx build -t $IMG . --load
+        fi
+
+  buildx-and-push:
+    - |
+      IMG="{{.BASEIMG}}:{{.TAG}}" 
+      docker buildx build --platform linux/amd64,linux/arm64 -t $IMG . --push         
