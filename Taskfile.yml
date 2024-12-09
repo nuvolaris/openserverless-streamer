@@ -18,7 +18,8 @@
 version: "3"
 
 vars:
-  BASEIMG: ghcr.io/nuvolaris/openserverless-streamer
+  BASETAG: 0.1.0-incubating
+  BASEIMG: dockerhub.io/apache/openserverless-streamer
   COMMIT_ID:
     sh: git rev-parse --short HEAD
   TAG:
@@ -31,7 +32,7 @@ tasks:
     silent: true
     cmds:
       - git tag -d $(git tag)
-      - git tag -f $(date +%y%m%d%H%M)
+      - git tag -f {{.BASETAG}}.$(date +%y%m%d%H%M)
       - env PAGER= git tag
       
   build:    
