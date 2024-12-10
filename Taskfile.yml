@@ -14,10 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
 version: "3"
 
 vars:
-  BASEIMG: ghcr.io/nuvolaris/openserverless-streamer
+  BASETAG: 0.1.0-rc0-incubating
+  BASEIMG: registry.hub.docker.com/apache/openserverless-streamer
   COMMIT_ID:
     sh: git rev-parse --short HEAD
   TAG:
@@ -30,7 +32,7 @@ tasks:
     silent: true
     cmds:
       - git tag -d $(git tag)
-      - git tag -f $(date +%y%m%d%H%M)
+      - git tag -f {{.BASETAG}}.$(date +%y%m%d%H%M)
       - env PAGER= git tag
       
   build:    
@@ -41,8 +43,3 @@ tasks:
         then {{.DRY}} docker buildx build -t $IMG --platform linux/amd64,linux/arm64 . --push
         else {{.DRY}} docker buildx build -t $IMG . --load
         fi
-
-  buildx-and-push:
-    - |
-      IMG="{{.BASEIMG}}:{{.TAG}}" 
-      docker buildx build --platform linux/amd64,linux/arm64 -t $IMG . --push         
