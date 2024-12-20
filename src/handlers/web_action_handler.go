@@ -1,0 +1,122 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/apache/openserverless-streaming-proxy/tcp"
+)
+
+func WebActionStreamHandler(streamingProxyAddr string, apihost string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, done := context.WithCancel(context.Background())
+
+		namespace, actionToInvoke := getNamespaceAndAction(r)
+		log.Println(fmt.Sprintf("Web Action requested: %s (%s)", actionToInvoke, namespace))
+
+		// opens a socket for listening in a random port
+		sock, err := tcp.SetupTcpServer(ctx, streamingProxyAddr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			done()
+			return
+		}
+
+		// parse the json body and add STREAM_HOST and STREAM_PORT
+		enrichedBody, err := injectHostPortInBody(r, sock.Host, sock.Port)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			done()
+			return
+		}
+
+		// invoke the action
+		actionToInvoke = ensurePackagePresent(actionToInvoke)
+
+		jsonData, err := json.Marshal(enrichedBody)
+		if err != nil {
+			http.Error(w, "Error encoding JSON body: "+err.Error(), http.StatusInternalServerError)
+			done()
+			return
+		}
+		url := fmt.Sprintf("%s/api/v1/web/%s/%s", apihost, namespace, actionToInvoke)
+
+		errChan := make(chan error)
+		go asyncPostWebAction(errChan, url, jsonData)
+
+		// Flush the headers
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			done()
+			return
+		}
+
+		for {
+			select {
+			case data := <-sock.StreamDataChan:
+				if string(data) == "EOF" {
+					log.Println("EOF received, closing connection")
+					done()
+					return
+				}
+				_, err := w.Write([]byte("data: " + string(data) + "\n\n"))
+				if err != nil {
+					log.Println("Error writing to HTTP response:", err)
+					done()
+					return
+				}
+				flusher.Flush()
+
+			case <-r.Context().Done():
+				log.Println("HTTP Client closed connection")
+				done()
+				return
+
+			case err := <-errChan:
+				log.Println("Error invoking action:", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				done()
+				return
+			}
+
+		}
+	}
+}
+
+func ensurePackagePresent(actionToInvoke string) string {
+	if !strings.Contains(actionToInvoke, "/") {
+		actionToInvoke = "default" + "/" + actionToInvoke
+	}
+	return actionToInvoke
+}
+
+func asyncPostWebAction(errChan chan error, url string, body []byte) {
+	bodyReader := strings.NewReader(string(body))
+
+	req, err := http.NewRequest("POST", url, bodyReader)
+	if err != nil {
+		errChan <- err
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", bodyReader.Len()))
+	req.ContentLength = int64(bodyReader.Len())
+
+	client := &http.Client{}
+	httpResp, err := client.Do(req)
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		errChan <- fmt.Errorf("Error invoking action: %s", httpResp.Status)
+	}
+
+	close(errChan)
+}

@@ -27,6 +27,20 @@ invoke the relative OpenWhisk action, open a socket for the action to write to, 
 output to the client.
 
 It expects 2 environment variables to be set:
-- `APIHOST`: the OpenWhisk API host
+- `OW_APIHOST`: the OpenWhisk API host
 - `STREAMER_ADDR`: the address of the streamer server for the OpenWhisk actions to connect to
 
+Other environment variables can be set to configure the streamer:
+
+- `HTTP_SERVER_PORT`: the port the streamer server listens on (default: 8181)
+
+
+## Endpoints
+
+The streamer exposes the following endpoints:
+
+- `POST /action/{namespace}/{action}`: to invoke the OpenWhisk action on the given namespace, default package, and action name. It requires an a Authorization header with Bearer token with the OpenWhisk AUTH token
+- `POST /action/{namespace}/{package}/{action}`: to invoke the OpenWhisk action on the given namespace, custom package, and action name. It requires an a Authorization header with Bearer token with the OpenWhisk AUTH token
+
+- `POST /web/{namespace}/{action}`: to invoke an OpenWhisk web action on the given namespace, default package, and action name.
+- `POST /web/{namespace}/{package}/{action}`: to invoke an OpenWhisk web action on the given namespace, custom package, and action name.

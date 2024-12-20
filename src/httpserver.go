@@ -18,12 +18,11 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"os"
-	"strings"
+
+	"github.com/apache/openserverless-streaming-proxy/handlers"
 )
 
 func startHTTPServer(streamingProxyAddr string, apihost string) {
@@ -37,10 +36,10 @@ func startHTTPServer(streamingProxyAddr string, apihost string) {
 	router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Streamer proxy running"))
 	})
-	// router.HandleFunc("POST /web/{ns}/{action}", handleWebActionStream(streamingProxyAddr, apihost))
-	// router.HandleFunc("POST /web/{ns}/{pkg}/{action}", handleWebActionStream(streamingProxyAddr, apihost))
-	router.HandleFunc("POST /action/{ns}/{action}", handleActionStream(streamingProxyAddr, apihost))
-	router.HandleFunc("POST /action/{ns}/{pkg}/{action}", handleActionStream(streamingProxyAddr, apihost))
+	router.HandleFunc("POST /web/{ns}/{action}", handlers.WebActionStreamHandler(streamingProxyAddr, apihost))
+	router.HandleFunc("POST /web/{ns}/{pkg}/{action}", handlers.WebActionStreamHandler(streamingProxyAddr, apihost))
+	router.HandleFunc("POST /action/{ns}/{action}", handlers.ActionStreamHandler(streamingProxyAddr, apihost))
+	router.HandleFunc("POST /action/{ns}/{pkg}/{action}", handlers.ActionStreamHandler(streamingProxyAddr, apihost))
 
 	server := &http.Server{
 		Addr:    ":" + httpPort,
@@ -51,42 +50,4 @@ func startHTTPServer(streamingProxyAddr string, apihost string) {
 	if err := server.ListenAndServe(); err != nil {
 		log.Println("Error starting HTTP server:", err)
 	}
-}
-
-func injectHostPortInBody(r *http.Request, tcpServerHost string, tcpServerPort string) (map[string]interface{}, error) {
-	body := r.Body
-	defer body.Close()
-
-	jsonBody := make(map[string]interface{})
-	if err := json.NewDecoder(body).Decode(&jsonBody); err != nil {
-		return nil, err
-	}
-
-	jsonBody["STREAM_HOST"] = tcpServerHost
-	jsonBody["STREAM_PORT"] = tcpServerPort
-	return jsonBody, nil
-}
-
-func getNamespaceAndAction(r *http.Request) (string, string) {
-	namespace := r.PathValue("ns")
-	pkg := r.PathValue("pkg")
-	action := r.PathValue("action")
-
-	actionToInvoke := action
-	if pkg != "" {
-		actionToInvoke = pkg + "/" + action
-	}
-
-	return namespace, actionToInvoke
-}
-
-func extractAuthToken(r *http.Request) (string, error) {
-	apiKey := r.Header.Get("Authorization")
-	if apiKey == "" {
-		return "", errors.New("Missing Authorization header")
-	}
-
-	// get the apikey without the Bearer prefix
-	apiKey = strings.TrimPrefix(apiKey, "Bearer ")
-	return apiKey, nil
 }
