@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package tcp
 
 import (
 	"context"
@@ -23,6 +23,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandleConnection(t *testing.T) {
@@ -32,7 +34,7 @@ func TestHandleConnection(t *testing.T) {
 	streamDataChan := make(chan []byte, 10)
 	server := &SocketsServer{
 		ctx:            ctx,
-		streamDataChan: streamDataChan,
+		StreamDataChan: streamDataChan,
 	}
 
 	// Create a pipe to simulate a network connection
@@ -54,11 +56,9 @@ func TestHandleConnection(t *testing.T) {
 	// Read data from the streamDataChan
 	select {
 	case receivedData := <-streamDataChan:
-		if string(receivedData) != string(testData) {
-			t.Errorf("Expected %s, but got %s", string(testData), string(receivedData))
-		}
+		require.Equal(t, testData, receivedData)
 	case <-time.After(1 * time.Second):
-		t.Error("Timeout waiting for data")
+		require.Fail(t, "Timeout waiting for data")
 	}
 
 	// Cancel the context to stop the server
@@ -71,7 +71,7 @@ func TestHandleConnectionContextCancel(t *testing.T) {
 	streamDataChan := make(chan []byte, 10)
 	server := &SocketsServer{
 		ctx:            ctx,
-		streamDataChan: streamDataChan,
+		StreamDataChan: streamDataChan,
 	}
 
 	// Create a pipe to simulate a network connection
@@ -101,4 +101,28 @@ func TestHandleConnectionContextCancel(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		// Expected case
 	}
+}
+func TestSetupTcpServer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	streamingProxyAddr := "localhost"
+	server, err := SetupTcpServer(ctx, streamingProxyAddr)
+	require.NoError(t, err)
+	defer server.listener.Close()
+
+	require.NotNil(t, server.ctx)
+	require.NotNil(t, server.listener)
+	require.NotNil(t, server.StreamDataChan)
+	require.NotEmpty(t, server.Host)
+	require.NotEmpty(t, server.Port)
+}
+
+func TestSetupTcpServerInvalidAddress(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	streamingProxyAddr := "invalid address"
+	_, err := SetupTcpServer(ctx, streamingProxyAddr)
+	require.Error(t, err)
 }

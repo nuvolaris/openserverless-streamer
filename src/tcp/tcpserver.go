@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package tcp
 
 import (
 	"context"
@@ -30,11 +30,31 @@ import (
 type SocketsServer struct {
 	ctx            context.Context
 	listener       net.Listener
-	streamDataChan chan []byte
 	wg             sync.WaitGroup
+	Host           string
+	Port           string
+	StreamDataChan chan []byte
 }
 
-func startTCPServer(ctx context.Context, streamingProxyAddr string, streamDataChan chan []byte) (*SocketsServer, error) {
+func SetupTcpServer(ctx context.Context, streamingProxyAddr string) (*SocketsServer, error) {
+	socketServer, err := startTCPServer(ctx, streamingProxyAddr)
+	if err != nil {
+		return nil, err
+	}
+	go socketServer.WaitToCleanUp()
+
+	tcpServerHost, tcpServerPort, err := net.SplitHostPort(socketServer.listener.Addr().String())
+	if err != nil {
+		return nil, err
+	}
+
+	socketServer.Host = tcpServerHost
+	socketServer.Port = tcpServerPort
+
+	return socketServer, nil
+}
+
+func startTCPServer(ctx context.Context, streamingProxyAddr string) (*SocketsServer, error) {
 	listener, err := net.Listen("tcp", streamingProxyAddr+":0")
 	if err != nil {
 		return nil, errors.New("Error starting TCP server")
@@ -43,7 +63,7 @@ func startTCPServer(ctx context.Context, streamingProxyAddr string, streamDataCh
 	s := &SocketsServer{
 		ctx:            ctx,
 		listener:       listener,
-		streamDataChan: streamDataChan,
+		StreamDataChan: make(chan []byte),
 	}
 
 	s.wg.Add(1)
@@ -57,12 +77,10 @@ func (s *SocketsServer) acceptConnections() {
 	defer s.wg.Done()
 
 	for {
-		log.Println("Accepting connections on", s.listener.Addr().String())
 		conn, err := s.listener.Accept()
 		if err != nil {
 			select {
 			case <-s.ctx.Done():
-				log.Println("Stopped accepting connections")
 				return
 			default:
 				log.Println("accept error", err.Error())
@@ -77,8 +95,10 @@ func (s *SocketsServer) acceptConnections() {
 	}
 
 }
+
 func (s *SocketsServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
+	log.Println("New TCP connection accepted!")
 	buf := make([]byte, 2048)
 
 ReadLoop:
@@ -86,7 +106,6 @@ ReadLoop:
 		select {
 
 		case <-s.ctx.Done():
-			log.Println("Closing TCP connection")
 			return
 
 		default:
@@ -108,7 +127,7 @@ ReadLoop:
 					continue ReadLoop
 				}
 
-				s.streamDataChan <- buf[:n]
+				s.StreamDataChan <- buf[:n]
 			}
 
 		}
@@ -120,5 +139,5 @@ func (s *SocketsServer) WaitToCleanUp() {
 	log.Println("Stopping listening on", s.listener.Addr().String())
 	s.listener.Close()
 	s.wg.Wait()
-	log.Print("TCP server on", s.listener.Addr().String(), "closed\n\n")
+	log.Print("TCP server closed\n\n")
 }
