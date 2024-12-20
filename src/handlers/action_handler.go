@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"context"
@@ -9,13 +9,13 @@ import (
 	"github.com/apache/openserverless-streaming-proxy/tcp"
 )
 
-func handleActionStream(streamingProxyAddr string, apihost string) func(http.ResponseWriter, *http.Request) {
+func ActionStreamHandler(streamingProxyAddr string, apihost string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, done := context.WithCancel(context.Background())
 
 		namespace, actionToInvoke := getNamespaceAndAction(r)
 
-		log.Println(fmt.Sprintf("Received request to invoke action: %s (%s)", actionToInvoke, namespace))
+		log.Println(fmt.Sprintf("Private Action request: %s (%s)", actionToInvoke, namespace))
 
 		apiKey, err := extractAuthToken(r)
 		if err != nil {
@@ -96,5 +96,4 @@ func handleActionStream(streamingProxyAddr string, apihost string) func(http.Res
 			}
 		}
 	}
-
 }
